@@ -4,7 +4,7 @@ library(naniar)
 library(ggplot2)
 library(tidyverse)
 library(igraph)
-library(ggridges)
+library(ggraph)
 
 Star_Wars_characters <- read.csv("00_raw_data/SW-characters.csv")
 # glimpse(Star_Wars_characters$birth_year)
@@ -133,13 +133,75 @@ sw_clean %>%
 
 
 # the most frequently occurring value for species (only species >= 2)
-# sw_clean %>%
-#   count(species) %>%
-#   filter(n >= 2) %>%
-#   ggplot(aes(
-#     x = as_factor(species),
-#     y = n,
-#     label = n
-#   )) +
-#   geom_col() +
-#   geom_text(nudge_y = 1)
+sw_clean %>%
+  count(species) %>%
+  filter(n >= 2) %>%
+  ggplot(aes(
+    x = as_factor(species),
+    y = n,
+    label = n
+  )) +
+  geom_col() +
+  geom_text(nudge_y = 1)
+# The frequency table and the plot reveal that the mode for species is Human. In addition, we also get to know how many there are humans, i.e. 35 ones.
+
+# Ingredients for our normality reference plot
+#  I saved the plot with the normal distribution in a separate object
+mean_ref <- mean(sw_clean$height)
+sd_ref <- sd(sw_clean$height)
+# Create a plot with our reference normal distribution
+n_plot <-
+  sw_clean %>%
+  ggplot(aes(height)) +
+  geom_function(
+    fun = dnorm,
+    n = 103,
+    args = list(
+      mean = mean_ref,
+      sd = sd_ref
+    ),
+    col = "red"
+  )
+
+# Add our density plot
+n_plot +
+  geom_density(bw = 18) +
+  ggtitle("bw = 18")
+
+# If a density plot is the sibling of a histogram, the violin plot would be the sibling of a boxplot, but the twin of a density plot.
+sw_clean %>%
+  ggplot(aes(x = height, y = 0)) +
+  geom_violin()
+
+#  The reason why it is also a twin of the density plot becomes clear when we only plot half of the violin with geom_violinghalf() from the see package.
+sw_clean %>%
+  ggplot(aes(x = 0, y = height)) +
+  see::geom_violinhalf() +
+  coord_flip()
+
+# The package ggforce enables us to draw a ‘sina’ plot which combines a violin plot with a dot plot. Here is an example of overlaying a sina plot (black dots) and a violin plot (faded blue violin plot).
+sw_clean %>%
+  ggplot(aes(y = height, x = 0)) +
+  geom_violin(alpha = 0.5, col = "#395F80", fill = "#C0E2FF") +
+  ggforce::geom_sina() +
+  coord_flip()
+
+# one of the most popular uses of half-violin plots: The rain cloud plot. It combines a dot plot with a density plot, and each dot represents a movie in our dataset. This creates the appearance of a cloud with raindrops. There are several packages available that can make such a plot. Here I used the see package.
+sw_clean %>%
+  filter(homeworld == "Naboo" | homeworld == "Kamino") %>%
+  ggplot(aes(x = homeworld, y = height, fill = homeworld)) +
+  see::geom_violindot(fill_dots = "blue", size_dots = 0.2) +
+  see::theme_modern() +
+  coord_flip()
+
+# Make plot reproducible
+set.seed(1234)
+
+# Create the special igraph object
+graph <- igraph::graph_from_data_frame(sw_clean)
+
+# Plot the network graph
+graph %>%
+  ggraph(layout = "kk") + # Choose a layout
+  geom_edge_link() + # Draw lines between nodes
+  geom_node_point() # Add node points
